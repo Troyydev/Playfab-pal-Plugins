@@ -1,27 +1,24 @@
-# PlayFabPal Plugin SDK Documentation
+# PlayFabPal SDK Guide for Plugin Authors
 
-Welcome to the **PlayFabPal Plugin SDK**! This guide will walk you through everything you need to know to build and publish plugins for PlayFabPal.
+Welcome to the **PlayFabPal SDK**, designed for **plugin authors** to extend your bot via `/plugin load` and `/plugin remove`. This document explains everything you need—**no access to `bot.py` required**.
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Setup & Installation](#setup--installation)
-3. [Plugin Structure](#plugin-structure)
-4. [Writing Your First Plugin](#writing-your-first-plugin)
+2. [Installation & Loading](#installation--loading)
+3. [Plugin Directory Structure](#plugin-directory-structure)
+4. [plugin.json Metadata](#pluginjson-metadata)
+5. [Writing Your Plugin (main.py)](#writing-your-plugin-mainpy)
 
-   * [Register Function](#register-function)
+   * [The `register(api)` Function](#the-registerapi-function)
    * [Slash Commands](#slash-commands)
-   * [PluginPayload Usage](#pluginpayload-usage)
-   * [Calling PlayFab](#calling-playfab)
-5. [Modals & User Input](#modals--user-input)
-6. [SafePlayFab Reference](#safeplayfab-reference)
-7. [Advanced Features](#advanced-features)
-
-   * [Event Hooks](#event-hooks)
-   * [Permissions](#permissions)
-8. [Plugin Packaging & Deployment](#plugin-packaging--deployment)
+   * [Using PluginPayload](#using-pluginpayload)
+   * [SafePlayFab Calls](#safeplayfab-calls)
+6. [Adding & Removing Plugins via Slash](#adding--removing-plugins-via-slash)
+7. [Modals & UI Interaction](#modals--ui-interaction)
+8. [Permissions](#permissions)
 9. [Examples](#examples)
 10. [FAQ](#faq)
 11. [License](#license)
@@ -30,210 +27,180 @@ Welcome to the **PlayFabPal Plugin SDK**! This guide will walk you through every
 
 ## Overview
 
-The PlayFabPal Plugin SDK enables users to create custom Discord slash-command plugins that interface with PlayFab's Admin and Server APIs. Plugins are sandboxed, per-guild, and leverage convenience helpers for UI elements and API calls.
+Plugin authors can build standalone folders containing metadata and code—**no edits to the main bot**. Use the `/plugin load` command to upload your plugin, `/plugin remove` to uninstall.
 
-### Key Components
+## Installation & Loading
 
-* **PluginAPI**: Core SDK class passed into each plugin's `register()` function.
-* **PluginPayload**: Simplifies replies, modals, and PlayFab calls inside a command.
-* **SafePlayFab**: Constructs PlayFab API payloads with permission checks.
-* **Decorators**: `@api.command` and `@on_event` to register commands and event handlers.
-
----
-
-## Setup & Installation
-
-1. **Copy SDK folder** into your bot project:
+1. **Prepare your plugin folder** locally:
 
    ```
-   playfabpal_sdk/
-     ├── __init__.py
-     ├── decorators.py
-     ├── plugin_api.py
-     └── safe_playfab.py
-   ```
-2. **Ensure SDK is importable** (e.g., alongside `bot.py`).
-3. **Plugins directory** structure:
-
-   ```
-   plugins/<guild_id>/<plugin_name>/
+   my_plugin/
      ├── plugin.json
      └── main.py
    ```
-4. **Restart** your bot; it will auto-load plugins.
+2. In Discord, run:
+
+   ```
+   /plugin load path_or_url_to/my_plugin.zip
+   ```
+3. Bot responds with ✅ on success. Your commands are now registered.
+4. To uninstall:
+
+   ```
+   /plugin remove my_plugin
+   ```
 
 ---
 
-## Plugin Structure
+## Plugin Directory Structure
 
-Each plugin folder must contain:
+Every plugin **must** have:
 
-* **plugin.json** (metadata):
+```
+<plugin_name>/
+  plugin.json
+  main.py
+```
 
-  ```json
-  {
-    "name": "MyPlugin",
-    "permissions": ["grant_item", "get_player_info"]
-  }
-  ```
-* **main.py**: Defines `register(api: PluginAPI)`.
+## plugin.json Metadata
+
+```json
+{
+  "name": "MyPlugin",         // Unique plugin name
+  "permissions": [            // PlayFab permissions required
+    "grant_item",
+    "get_inventory"
+  ]
+}
+```
+
+* `name`: identifier used by `/plugin remove`.
+* `permissions`: limiting PlayFab calls available.
 
 ---
 
-## Writing Your First Plugin
+## Writing Your Plugin (main.py)
 
-### Register Function
+All code lives in `main.py`. You import only from `playfabpal_sdk`.
+
+### The `register(api)` Function
 
 ```python
-# main.py
 from playfabpal_sdk import PluginAPI, PluginPayload
 
 def register(api: PluginAPI):
-    # register commands here
-    pass
+    # your registration logic here
 ```
 
-The `register(api)` function is called once per guild.
+* Called automatically after `/plugin load`.
+* `api` instance is tied to the guild.
 
 ### Slash Commands
 
-Use `@api.command(name, description)`:
+Use `@api.command("name", "description")`:
 
 ```python
-@api.command("ping", "Replies with Pong!")
+@api.command("ping", "Replies pong")
 async def ping(interaction: discord.Interaction):
-    pl = PluginPayload(interaction, api)
-    await pl.send("Pong! 🎉")
+    p = PluginPayload(interaction, api)
+    await p.send("Pong!")
 ```
 
-* Function signature must start with an `Interaction` parameter.
-* Additional parameters map to slash options by name and type.
+* The function’s signature determines slash-options.
+* First parameter must be `interaction`.
 
-### PluginPayload Usage
-
-Inside a command, instantiate:
+### Using PluginPayload
 
 ```python
-def some_cmd(interaction, arg1: str):
-    pl = PluginPayload(interaction, api)
-    pl.log("debug message")
-    await pl.send("Hello!")
+p = PluginPayload(interaction, api)
+p.log("Debug message")
+await p.send("Hello!")
 ```
 
 Methods:
 
-* `pl.send(message: str, ephemeral: bool = True)`
-* `pl.send_modal(modal_instance)`
-* `pl.playfab(payload: dict) -> dict` to call PlayFab
-* `pl.log(msg: str)` to console
+* `send(msg, ephemeral=True)`
+* `send_modal(modal)`
+* `playfab(payload)`
+* `log(msg)`
 
-### Calling PlayFab
+### SafePlayFab Calls
 
-Construct payload via `api.playfab` helpers:
+Construct API payloads:
 
 ```python
 payload = api.playfab.grant_item(player_id, item_id)
-result = await pl.playfab(payload)
-await pl.send(f"Result: {result}")
+result = await p.playfab(payload)
+await p.send(f"Result: {result}")
 ```
 
 ---
 
-## Modals & User Input
+## Adding & Removing Plugins via Slash
 
-Create interactive forms by subclassing `api.Modal`:
+* **Load**: `/plugin load url_or_attachment`
+* **Remove**: `/plugin remove <plugin_name>`
+* **List**: `/plugin list`
+
+---
+
+## Modals & UI Interaction
+
+Create modals by subclassing `api.Modal`:
 
 ```python
 class MyModal(api.Modal):
     def __init__(self):
-        super().__init__(title="My Form")
-        self.field = api.TextInput(label="Field", placeholder="Enter...")
-        self.add_item(self.field)
+        super().__init__(title="Form")
+        self.input = api.TextInput("Label", "Placeholder")
+        self.add_item(self.input)
 
     async def on_submit(self, interaction):
-        pl = PluginPayload(interaction, api)
-        value = self.field.value
-        await pl.send(f"You typed: {value}")
+        p = PluginPayload(interaction, api)
+        await p.send(f"You entered: {self.input.value}")
 
 @api.command("show_form")
 async def show_form(interaction: discord.Interaction):
-    pl = PluginPayload(interaction, api)
-    await pl.send_modal(MyModal())
+    p = PluginPayload(interaction, api)
+    await p.send_modal(MyModal())
 ```
 
 ---
 
-## SafePlayFab Reference
+## Permissions
 
-| Method                           | Permission              | Description                       |
-| -------------------------------- | ----------------------- | --------------------------------- |
-| `grant_item(user, item, ...)`    | `grant_item`            | Admin/GrantItemsToUsers           |
-| `grant_currency(user, amt, ...)` | `grant_currency`        | Admin/AddUserVirtualCurrency      |
-| `subtract_currency(...)`         | `subtract_currency`     | Admin/SubtractUserVirtualCurrency |
-| `get_inventory(user)`            | `get_inventory`         | Server/GetUserInventory           |
-| `revoke_inventory_item(...)`     | `revoke_inventory_item` | Server/RevokeInventoryItem        |
-| `ban_player(user, reason)`       | `ban_player`            | Admin/BanUsers                    |
-| `revoke_ban(user)`               | `revoke_ban`            | Admin/RevokeBans                  |
-| `get_user_bans(user)`            | `get_user_bans`         | Admin/GetUserBans                 |
-| `delete_player(user)`            | `delete_player`         | Admin/DeletePlayer                |
-| `find_player(user)`              | `find_player`           | Admin/GetPlayerCombinedInfo       |
-| `get_player_info(user)`          | `get_player_info`       | Admin/GetUserAccountInfo          |
-| `get_catalog(version)`           | `get_catalog`           | Admin/GetCatalogItems             |
-| `set_motd(key, value)`           | `set_motd`              | Server/SetTitleData               |
-
----
-
-## Advanced Features
-
-### Event Hooks
-
-Use `@on_event(event_name)` to listen:
-
-```python
-from playfabpal_sdk import on_event
-
-@on_event("member_join")
-async def welcome(api, member):
-    # handle event
-    pass
-```
-
-### Permissions
-
-List required PlayFab permissions in `plugin.json`:
+List only the SafePlayFab permissions your plugin needs:
 
 ```json
-{ "permissions": ["grant_item", "get_inventory"] }
+"permissions": ["grant_item","get_inventory"]
 ```
-
-SDK enforces these at runtime.
-
----
-
-## Plugin Packaging & Deployment
-
-1. ZIP your plugin folder (retain `plugin.json` & `main.py`).
-2. Upload to your bot’s `plugins/<guild_id>/` directory.
-3. Bot will auto-reload on next start.
 
 ---
 
 ## Examples
 
-Refer to the `examples/` folder in this repo for complete plugins:
+**GrantItem Plugin**
 
-* `grantitemv2`
-* `inventory_viewer`
+```python
+# plugin.json
+{ "name": "grantitem", "permissions": ["grant_item"] }
+
+# main.py
+def register(api):
+    @api.command("grantitem","Grant item")
+    async def grant(interaction, player_id: str, item_id: str):
+        p = PluginPayload(interaction,api)
+        payload=api.playfab.grant_item(player_id,item_id)
+        r=await p.playfab(payload)
+        await p.send(f"✅ {r}")
+```
 
 ---
 
 ## FAQ
 
-**Q**: Can I share plugins across guilds?
-**A**: Yes—place in each `plugins/<guild_id>/` directory.
-
-**Q**: How to debug?
-**A**: Use `pl.log("msg")` to print namespaced logs.
+**Q:** Can one plugin serve multiple guilds?
+**A:** Yes—run `/plugin load` in each server.
 
 ---
 
