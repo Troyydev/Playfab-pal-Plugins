@@ -1,6 +1,6 @@
 # PlayFabPal SDK Guide for Plugin Authors
 
-Welcome to the **PlayFabPal SDK**, designed for **plugin authors** to extend your bot via `/plugin load` and `/plugin remove`. This document explains everything you need—**no access to `bot.py` required**.
+Welcome to the **PlayFabPal SDK**, designed for **plugin authors** to extend your bot via `/plugin load` and `/plugin remove`. This document explains everything you need.
 
 ---
 
@@ -27,7 +27,7 @@ Welcome to the **PlayFabPal SDK**, designed for **plugin authors** to extend you
 
 ## Overview
 
-Plugin authors can build standalone folders containing metadata and code—**no edits to the main bot**. Use the `/plugin load` command to upload your plugin, `/plugin remove` to uninstall.
+Plugin authors can build standalone folders containing metadata and code. Use the `/plugin load` command to upload your plugin, `/plugin remove` to uninstall.
 
 ## Installation & Loading
 
@@ -41,10 +41,11 @@ Plugin authors can build standalone folders containing metadata and code—**no 
 2. In Discord, run:
 
    ```
-   /plugin load path_or_url_to/my_plugin.zip
+   /plugin load pluginID:versioncode
    ```
-3. Bot responds with ✅ on success. Your commands are now registered.
-4. To uninstall:
+3. The bot will ask for confirmation to install this plugin.
+4. Then the Bot responds with ✅ on success. Your commands are now registered, and the Plugin should be active.
+5. To uninstall:
 
    ```
    /plugin remove my_plugin
@@ -81,7 +82,7 @@ Every plugin **must** have:
 
 ## Writing Your Plugin (main.py)
 
-All code lives in `main.py`. You import only from `playfabpal_sdk`.
+All code lives in `main.py`. You import only from `playfabpal_sdk` and `discord`.
 
 ### The `register(api)` Function
 
@@ -138,7 +139,7 @@ await p.send(f"Result: {result}")
 
 ## Adding & Removing Plugins via Slash
 
-* **Load**: `/plugin load url_or_attachment`
+* **Load**: `/plugin load pluginID:versioncode`
 * **Remove**: `/plugin remove <plugin_name>`
 * **List**: `/plugin list`
 
@@ -206,7 +207,7 @@ def register(api):
 
 ## License
 
-MIT © YourName
+MIT © Troyy_
 
 ---
 
