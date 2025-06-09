@@ -207,3 +207,14 @@ def register(api):
 ## License
 
 MIT © YourName
+
+---
+
+## Publishing Plugins
+
+Once your plugin is ready:
+
+1. ZIP your plugin folder (`plugin.json` & `main.py`).
+2. Upload via the website submission form.
+3. After verification, your plugin appears on the public plugins page.
+4. In Discord, run `/plugin load <plugin_id>` to install it in your server.
